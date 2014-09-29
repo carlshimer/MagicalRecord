@@ -72,6 +72,23 @@ NSString * const kMagicalRecordDidMergeChangesFromiCloudNotification = @"kMagica
           ([NSThread isMainThread] ? @" *** on Main Thread ***" : @""));
     
 	[self mergeChangesFromContextDidSaveNotification:notification];
+
+ 
+  //Source: http://stackoverflow.com/questions/16296364/nsfetchedresultscontroller-is-not-showing-all-results-after-merging-an-nsmanage
+  //BUG FIX: When the notification is merged it only updates objects which are already registered in the context.
+  //If the predicate for a NSFetchedResultsController matches an updated object but the object is not registered
+  //in the FRC's context then the FRC will fail to include the updated object. The fix is to force all updated
+  //objects to be refreshed in the context thus making them available to the FRC.
+  //Note that we have to be very careful about which methods we call on the managed objects in the notifications userInfo.
+  for (NSManagedObject *unsafeManagedObject in notification.userInfo[NSUpdatedObjectsKey]) {
+    //Force the refresh of updated objects which may not have been registered in this context.
+    NSManagedObject *manangedObject = [self existingObjectWithID:unsafeManagedObject.objectID error:NULL];
+    if (manangedObject != nil) {
+      [self refreshObject:manangedObject mergeChanges:YES];
+    }
+  }
+
+
 }
 
 - (void) MR_mergeChangesOnMainThread:(NSNotification *)notification;
